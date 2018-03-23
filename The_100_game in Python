@@ -1,0 +1,145 @@
+# Machine learning example 
+# https://en.wikipedia.org/wiki/Nim#The_100_game
+# author: Gábor Somogyi, 2018.01.13
+
+import sys
+import time
+import random
+
+class player :
+    """ a player knows the rules of the game, documents all his steps
+    in the history file and plays according to the values stored in places[] """
+
+    def __init__(self) :
+        """ history of a single game is owned by the player"""
+        self.history = []
+        return
+
+    def reset(self) :
+        """ when a new game starts player is either init or reset """
+        self.history = []
+        return
+
+    def turn(self, state) :
+        """ this is the calculation of the player's response """
+        if ((goal-state)<=step) :       # if we can win, we should win
+            return goal                 # we jump to the goal                      
+        else :
+            # possible places are in the range of (state+1..state+step)
+            # the value of all places are stored in the place[] list 
+            # selectable values are in the sublist place[state+1:state+step+1]
+            # we want to know where are the maximum values in this sublist
+            # because max value (m) shows the better places to jump to
+            # we create a list (opt) of the places of the reachable (m) maximum values
+            # then we select randomly from the options (these are all max places)
+            
+            m = max(place[state+1 : state+step+1])
+            opt = [i for i in range(state+1, state+step+1) if place[i] == m]
+            self.history.append(random.choice(opt))
+            return self.history[-1]
+
+
+def learning(runs, place):  # runs are the number of learning cycles
+    """ Learning is carried out the same way as Arthur Samuel did it with the self learning
+    checkers program. The computer plays 'runs' number of games against itself, temporarily
+    stores the steps in the players history lists and after each game played it updates places[] """
+    a = player()            # player 'a' created for self learning
+    b = player()            # player 'b' created for self learning
+    state = 0               # status (current value) of the game defined as local
+
+    print("START learning...")
+    start_ = time.time()        # time in seconds from epoch (float)
+
+    for run in range(runs) :    # learning cycles
+        while state < goal :
+            state = a.turn(state)
+            if state == goal :  # player 'a' won
+                for h in a.history : place[h] = place[h]+1  # "a" places are more valuable
+                for h in b.history : place[h] = place[h]-1  # "b" places are less valuable
+            else :
+                state = b.turn(state)
+                if state == goal :  # player 'b' won
+                    for h in a.history : place[h] = place[h]-1  # "a" places are less valuable
+                    for h in b.history : place[h] = place[h]+1  # "b" places are more valuable
+        a.reset()   # preparing for a new game within the learning cycle
+        b.reset()   
+        state = 0
+    end_ = time.time()
+    delta_ = int((end_-start_)*1000000)
+    print("FINISHED",runs,"games in",delta_,"usec, ",int(round(delta_/runs)),"usec/cycle")
+    return
+
+
+def ask(prompt, choices):
+    """ single character keyboard input + Enter to be selected from choices """
+    while True:
+        ans = input(prompt)
+        if (ans in choices) and (len(ans)==1):
+            return ans
+
+
+def getnum(prompt,lo,hi):
+    """ read an int number from the keyboard + Enter in the range lo..hi inclusive """
+    while True:
+        try:
+            ans = int(input(prompt))
+            if (lo<=ans) and (ans<=hi):
+                return ans
+            else:
+                raise ValueError
+        except ValueError:
+            print('Acceptable range is ',lo,'..',hi,'. Please try again!')
+    
+
+# program starts here with initialization of global variables
+goal = 100              # number to be reached by the winner
+step = 10               # max number that can be added in each turn
+runs = 5                # initial number of predefined learning cycles, you can increase later
+place = [0] * goal      # the brain: contains all values of places that we can select
+state = 0               # status of the game (note: this is a finite state game having 0..100 states)
+ 
+print('\n'*20,'\nNIM_100 game - using machine learning')
+print('For details please visit: https://en.wikipedia.org/wiki/Nim#The_100_game\n')
+
+learning(runs, place)   # number of cycles, and the "brain" are passed on
+
+comp = player()
+while True:
+    print('\nWhat now?')
+    ans = ask('(R)ules, (P)lay, (L)earn more, (S)how my knowledge or (E)xit ? ','rplse')
+    if ans == 'r':
+        print('\nTwo players start from 0 and alternatively add a number from 1 to 10')
+        print('to the sum. The player who reaches 100 wins. ')
+    elif ans == 'p':
+        ans = ask('Would you like to start? ','yn')
+        if ans == 'y':
+            state = getnum('Your first number? ',1,10)
+        else:
+            state = 0
+        while state < goal :
+            state = comp.turn(state)
+            print('My step is',state)
+            if state == goal :  
+                print('I won this game.')
+            else :
+                state = getnum('Your step? ',state+1,min(state+step, goal))
+                if state == goal :
+                    print('You won this game. Congratulations.')
+        
+    elif ans == 'l':
+        learning(getnum('\nHow many learning games shall I play? ',1,10000),place)
+        
+    elif ans == 's':
+        print('\nI think these are the best places to use for a winning strategy:')
+        print([i for i in range(1, goal) if place[i] > 0])
+
+    elif ans == 'e':
+        print('\nBye.','\n'*5)
+        sys.exit()
+
+
+
+
+
+
+
